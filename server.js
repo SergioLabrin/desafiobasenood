@@ -1,80 +1,96 @@
+import pkg from 'pg';
+const { Pool } = pkg; // Desestructuración del objeto importado
+
 import express from 'express';
 import cors from 'cors';
-import pkg from 'pg'; 
-const { Pool } = pkg; 
 
 // Configuración del servidor
 const app = express();
+const port = 3000;
 
-// Habilitar CORS
+// Middleware
 app.use(cors());
-
-// Configurar Express para manejar JSON
 app.use(express.json());
 
-// Conexión a la base de datos PostgreSQL
+// Configuración de la conexión a PostgreSQL
 const pool = new Pool({
-    user: 'tu_usuario', // Cambia estos valores según tu configuración
+    user: 'tu_usuario', // Reemplazar con tu usuario de PostgreSQL
     host: 'localhost',
     database: 'likeme',
-    password: 'tu_contraseña',
+    password: 'tu_contraseña', // Reemplazar con tu contraseña
     port: 5432,
 });
 
-// Ruta GET para obtener todos los posts
+// Rutas
+
+// GET /posts - Obtener todos los posts
 app.get('/posts', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM posts');
         res.json(result.rows);
     } catch (error) {
-        console.error(error);
-        res.status(500).send('Error en el servidor');
+        console.error('Error al obtener los posts:', error);
+        res.status(500).json({ message: 'Error al obtener los posts' });
     }
 });
 
-// Ruta POST para crear un nuevo post
+// POST /posts - Crear un nuevo post
 app.post('/posts', async (req, res) => {
     const { titulo, img, descripcion } = req.body;
+
     try {
-        const result = await pool.query(
-            'INSERT INTO posts (titulo, img, descripcion, likes) VALUES ($1, $2, $3, 0) RETURNING *',
-            [titulo, img, descripcion]
-        );
-        res.json(result.rows[0]);
+        const query = 'INSERT INTO posts (titulo, img, descripcion, likes) VALUES ($1, $2, $3, 0) RETURNING *';
+        const values = [titulo, img, descripcion];
+        const result = await pool.query(query, values);
+
+        res.status(201).json({ message: 'Post creado exitosamente', post: result.rows[0] });
     } catch (error) {
-        console.error(error);
-        res.status(500).send('Error al crear el post');
+        console.error('Error al crear el post:', error);
+        res.status(500).json({ message: 'Error al crear el post' });
     }
 });
 
-// Ruta PUT para dar like a un post
-app.put('/posts/like/:id', async (req, res) => {
+// PUT /posts/:id/like - Agregar un like a un post
+app.put('/posts/:id/like', async (req, res) => {
     const { id } = req.params;
+
     try {
-        await pool.query('UPDATE posts SET likes = likes + 1 WHERE id = $1', [id]);
-        res.sendStatus(200);
+        const query = 'UPDATE posts SET likes = likes + 1 WHERE id = $1 RETURNING *';
+        const values = [id];
+        const result = await pool.query(query, values);
+
+        if (result.rows.length > 0) {
+            res.json({ message: 'Like agregado exitosamente', post: result.rows[0] });
+        } else {
+            res.status(404).json({ message: 'Post no encontrado' });
+        }
     } catch (error) {
-        console.error(error);
-        res.status(500).send('Error al dar like');
+        console.error('Error al agregar like:', error);
+        res.status(500).json({ message: 'Error al agregar like' });
     }
 });
 
-// Ruta DELETE para eliminar un post
+// DELETE /posts/:id - Eliminar un post
 app.delete('/posts/:id', async (req, res) => {
     const { id } = req.params;
+
     try {
-        await pool.query('DELETE FROM posts WHERE id = $1', [id]);
-        res.sendStatus(200);
+        const query = 'DELETE FROM posts WHERE id = $1 RETURNING *';
+        const values = [id];
+        const result = await pool.query(query, values);
+
+        if (result.rows.length > 0) {
+            res.json({ message: 'Post eliminado exitosamente', post: result.rows[0] });
+        } else {
+            res.status(404).json({ message: 'Post no encontrado' });
+        }
     } catch (error) {
-        console.error(error);
-        res.status(500).send('Error al eliminar el post');
+        console.error('Error al eliminar el post:', error);
+        res.status(500).json({ message: 'Error al eliminar el post' });
     }
 });
 
-// Iniciar el servidor en el puerto 3000
-const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`Servidor corriendo en http://localhost:${PORT}`);
+// Levantar el servidor
+app.listen(port, () => {
+    console.log(`Servidor corriendo en http://localhost:${port}`);
 });
-
-
